@@ -98,6 +98,22 @@ describe('Escrow', () => {
             expect(result).to.be.equal(tokens(5))
         })
     })
+    describe('Failure', async () => {
+        let incorrectEthAmount
+
+        beforeEach(async () => {
+            const cost = ethers.utils.parseEther("1");
+            const depositEarnest = cost.mul(50).div(100);
+            const incorrectEthAmount = cost.mul(40).div(100);
+
+            transaction = await escrow.connect(buyer).depositEarnest(1, { value: tokens(5) })
+            await transaction.wait()
+        })
+
+        it('Fails to send correct earnest amount', async () => {
+            await expect(escrow.connect(buyer).depositEarnest(1, { value: incorrectEthAmount })).to.be.reverted
+        })
+    })
 
     describe('Inspection', () => {
         beforeEach(async () => {
