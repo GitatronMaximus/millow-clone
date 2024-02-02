@@ -27,7 +27,7 @@ describe('Escrow', () => {
             realEstate.address,
             seller.address,
             inspector.address,
-            lender.address
+            lender.address,
         )
 
         // Approve Property
@@ -86,7 +86,7 @@ describe('Escrow', () => {
             expect(await realEstate.ownerOf(1)).to.be.equal(escrow.address)
         })
     })
-
+       
     describe('Deposits', () => {
         beforeEach(async () => {
             const transaction = await escrow.connect(buyer).depositEarnest(1, { value: tokens(5) })
@@ -97,24 +97,17 @@ describe('Escrow', () => {
             const result = await escrow.getBalance()
             expect(result).to.be.equal(tokens(5))
         })
-    })
-    describe('Failure', async () => {
-        let incorrectEthAmount
+    
+        describe('Failure', async () => {
 
-        beforeEach(async () => {
-            const cost = ethers.utils.parseEther("1");
-            const depositEarnest = cost.mul(50).div(100);
-            const incorrectEthAmount = cost.mul(40).div(100);
+            it('Fails to send correct earnest amount', async () => {
+                const cost = ethers.utils.parseEther("0.5")
+                incorrectEthAmount = cost.mul(40).div(100)
 
-            transaction = await escrow.connect(buyer).depositEarnest(1, { value: tokens(5) })
-            await transaction.wait()
-        })
-
-        it('Fails to send correct earnest amount', async () => {
-            await expect(escrow.connect(buyer).depositEarnest(1, { value: incorrectEthAmount })).to.be.reverted
+                await expect(escrow.connect(buyer).depositEarnest(1, { value: incorrectEthAmount })).to.be.reverted
+            })
         })
     })
-
     describe('Inspection', () => {
         beforeEach(async () => {
             const transaction = await escrow.connect(inspector).updateInspectionStatus(1, true)
