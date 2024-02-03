@@ -37,6 +37,9 @@ describe('Escrow', () => {
         // List Property
         transaction = await escrow.connect(seller).list(1, buyer.address, tokens(10), tokens(5))
         await transaction.wait()
+
+        const currentOwner = await realEstate.ownerOf(1)
+        console.log("Current owner: ", currentOwner)  
     })
 
     describe('Deployment', () => {
@@ -58,6 +61,13 @@ describe('Escrow', () => {
         it('Returns lender', async () => {
             const result = await escrow.lender()
             expect(result).to.be.equal(lender.address)
+
+            const currentOwner = await realEstate.ownerOf(1)
+            console.log("Current owner: ", currentOwner)
+        })  
+
+        describe('Failure', async () => {
+            //fail code
         })
     })
 
@@ -84,6 +94,15 @@ describe('Escrow', () => {
 
         it('Updates ownership', async () => {
             expect(await realEstate.ownerOf(1)).to.be.equal(escrow.address)
+
+            const currentOwner = await realEstate.ownerOf(1)
+        console.log("Current owner: ", currentOwner)
+        })
+
+          
+
+        describe('Failure', async () => {
+            //fail code
         })
     })
        
@@ -96,7 +115,12 @@ describe('Escrow', () => {
         it('Updates contract balance', async () => {
             const result = await escrow.getBalance()
             expect(result).to.be.equal(tokens(5))
+
+            const currentOwner = await realEstate.ownerOf(1)
+         console.log("Current owner: ", currentOwner) 
         })
+
+         
     
         describe('Failure', async () => {
 
@@ -117,6 +141,15 @@ describe('Escrow', () => {
         it('Updates inspection status', async () => {
             const result = await escrow.inspectionPassed(1)
             expect(result).to.be.equal(true)
+
+            const currentOwner = await realEstate.ownerOf(1)
+        console.log("Current owner: ", currentOwner) 
+        })
+
+         
+
+        describe('Failure', async () => {
+            //fail code
         })
     })
 
@@ -136,6 +169,13 @@ describe('Escrow', () => {
             expect(await escrow.approval(1, buyer.address)).to.be.equal(true)
             expect(await escrow.approval(1, seller.address)).to.be.equal(true)
             expect(await escrow.approval(1, lender.address)).to.be.equal(true)
+
+            const currentOwner = await realEstate.ownerOf(1)
+            console.log("Current owner: ", currentOwner)            
+        })
+
+        describe('Failure', async () => {
+            //fail code
         })
     })
 
@@ -168,6 +208,36 @@ describe('Escrow', () => {
 
         it('Updates balance', async () => {
             expect(await escrow.getBalance()).to.be.equal(0)
+        })
+
+        describe('Failure', async () => {
+            beforeEach(async () => {
+
+            let transaction = await escrow.connect(buyer).depositEarnest(1, { value: tokens(5) })
+            await transaction.wait()
+            console.log("Buyer address: ", buyer.address)
+
+            transaction = await escrow.connect(inspector).updateInspectionStatus(1, false)
+            await transaction.wait()           
+
+            })
+
+            it('Fails to update ownership due to unmet condition', async () => {
+
+            await expect(escrow.connect(seller).finalizeSale(1)).to.be.reverted
+            console.log("Seller address: ", seller.address)
+
+            const currentOwner = await realEstate.ownerOf(1)
+            console.log("Current owner: ", currentOwner)
+
+            expect(await realEstate.ownerOf(1)).to.not.equal(buyer.address)
+            })
+
+            it('Fails to transfer escrow to seller due to sale not finaized', async () => {
+                
+            const result = await escrow.getBalance();
+            expect(result).to.not.equal(0)
+            })             
         })
     })
 })
