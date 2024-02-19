@@ -14,6 +14,7 @@ contract Escrow {
     address payable public seller;
     address public inspector;
     address public lender;
+    address public lawyer;
 
     modifier onlyBuyer(uint256 _nftID) {
         require(msg.sender == buyer[_nftID], "Escrow: Only buyer can call this method");
@@ -30,23 +31,31 @@ contract Escrow {
         _;
     }
 
+    modifier onlyLawyer() {
+        require(msg.sender == lawyer, "Escrow: Only lawyer can call this method");
+        _;
+    }
+
     mapping(uint256 => bool) public isListed;
     mapping(uint256 => uint256) public purchasePrice;
     mapping(uint256 => uint256) public escrowAmount;
     mapping(uint256 => address) public buyer;
     mapping(uint256 => bool) public inspectionPassed;
+    mapping(uint256 => bool) public legalPassed;
     mapping(uint256 => mapping(address => bool)) public approval;
 
     constructor(
         address _nftAddress,
         address payable _seller,
         address _inspector,
-        address _lender
+        address _lender,
+        address _lawyer
     ) {
         nftAddress = _nftAddress;
         seller = _seller;
         inspector = _inspector;
         lender = _lender;
+        lawyer = _lawyer;
     }
 
     function list(
@@ -77,6 +86,13 @@ contract Escrow {
         inspectionPassed[_nftID] = _passed;
     }
 
+    function updateLegalStatus(uint256 _nftID, bool _passed)
+        public
+        onlyLawyer
+    {
+        legalPassed[_nftID] = _passed;
+    }
+
     // Approve Sale
     function approveSale(uint256 _nftID) public {
         approval[_nftID][msg.sender] = true;
@@ -90,6 +106,7 @@ contract Escrow {
     // -> Transfer Funds to Seller
     function finalizeSale(uint256 _nftID) public {
         require(inspectionPassed[_nftID]);
+        require(legalPassed[_nftID]);
         require(approval[_nftID][buyer[_nftID]]);
         require(approval[_nftID][seller]);
         require(approval[_nftID][lender]);

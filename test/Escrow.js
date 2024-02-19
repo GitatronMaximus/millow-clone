@@ -6,12 +6,12 @@ const tokens = (n) => {
 }
 
 describe('Escrow', () => {
-    let buyer, seller, inspector, lender, attacker
+    let buyer, seller, inspector, lender, lawyer, attacker
     let realEstate, escrow
 
     beforeEach(async () => {
         // Setup accounts
-        [buyer, seller, inspector, lender, attacker] = await ethers.getSigners()
+        [buyer, seller, inspector, lender, lawyer, attacker] = await ethers.getSigners()
 
         // Deploy Real Estate
         const RealEstate = await ethers.getContractFactory('RealEstate')
@@ -28,6 +28,7 @@ describe('Escrow', () => {
             seller.address,
             inspector.address,
             lender.address,
+            lawyer.address,
         )
 
         // Approve Property
@@ -62,6 +63,13 @@ describe('Escrow', () => {
             it('Returns lender', async () => {
                 const result = await escrow.lender()
                 expect(result).to.be.equal(lender.address)
+
+                const currentOwner = await realEstate.ownerOf(1)
+            })
+
+            it('Returns lawyer', async () => {
+                const result = await escrow.lawyer()
+                expect(result).to.be.equal(lawyer.address)
 
                 const currentOwner = await realEstate.ownerOf(1)
             })  
@@ -177,6 +185,57 @@ describe('Escrow', () => {
         })
     })
 
+
+    describe('Legal', () => {
+        describe('Success', () => {
+
+            beforeEach(async () => {
+                const transaction = await escrow.connect(lawyer).updateLegalStatus(1, true)
+                await transaction.wait()
+            })
+
+            it('Updates legal status', async () => {
+                const result = await escrow.legalPassed(1)
+                expect(result).to.be.equal(true)
+            })
+        })
+    })
+
+    describe('Approval', () => {
+        describe('Success', () => {
+
+            beforeEach(async () => {
+                let transaction = await escrow.connect(buyer).approveSale(1)
+                await transaction.wait()
+
+                transaction = await escrow.connect(seller).approveSale(1)
+                await transaction.wait()
+
+                transaction = await escrow.connect(lender).approveSale(1)
+                await transaction.wait()
+
+                transaction = await escrow.connect(lawyer).approveSale(1)
+                await transaction.wait()
+            })
+
+            it('Updates approval status', async () => {
+                expect(await escrow.approval(1, buyer.address)).to.be.equal(true)
+                expect(await escrow.approval(1, seller.address)).to.be.equal(true)
+                expect(await escrow.approval(1, lender.address)).to.be.equal(true)
+                expect(await escrow.approval(1, lawyer.address)).to.be.equal(true)
+
+                const currentOwner = await realEstate.ownerOf(1)
+            })
+        })
+
+        describe('Failure', async () => {
+           it("Should fail when a non-lawyer tries to update legal status", async function () {
+                
+                await expect(escrow.connect(attacker).updateLegalStatus(1, true)).to.be.revertedWith("Escrow: Only lawyer can call this method");
+            })
+        })
+    })
+
     describe('Sale', () => {
         describe('Success', () => {
 
@@ -185,6 +244,9 @@ describe('Escrow', () => {
                 await transaction.wait()
 
                 transaction = await escrow.connect(inspector).updateInspectionStatus(1, true)
+                await transaction.wait()
+
+                transaction = await escrow.connect(lawyer).updateLegalStatus(1, true)
                 await transaction.wait()
 
                 transaction = await escrow.connect(buyer).approveSale(1)
@@ -217,8 +279,11 @@ describe('Escrow', () => {
             let transaction = await escrow.connect(buyer).depositEarnest(1, { value: tokens(5) })
             await transaction.wait()
 
-            transaction = await escrow.connect(inspector).updateInspectionStatus(1, false)
-            await transaction.wait()           
+            transaction = await escrow.connect(inspector).updateInspectionStatus(1, true)
+            await transaction.wait()
+
+            transaction = await escrow.connect(lawyer).updateLegalStatus(1, false)
+            await transaction.wait()            
 
             })
 
