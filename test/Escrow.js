@@ -6,12 +6,12 @@ const tokens = (n) => {
 }
 
 describe('Escrow', () => {
-    let buyer, seller, inspector, lender
+    let buyer, seller, inspector, lender, attacker
     let realEstate, escrow
 
     beforeEach(async () => {
         // Setup accounts
-        [buyer, seller, inspector, lender] = await ethers.getSigners()
+        [buyer, seller, inspector, lender, attacker] = await ethers.getSigners()
 
         // Deploy Real Estate
         const RealEstate = await ethers.getContractFactory('RealEstate')
@@ -66,9 +66,6 @@ describe('Escrow', () => {
                 const currentOwner = await realEstate.ownerOf(1)
             })  
         })
-        describe('Failure', async () => {
-            //fail code
-        })
     })
 
     describe('Listing', () => {
@@ -101,13 +98,10 @@ describe('Escrow', () => {
         })
           
         describe('Failure', async () => {
-            let incorrectEscrow
+            let nftAddress
 
-            it('Fails to return correct escrow amount', async () => {
-            const result = await escrow.escrowAmount(1)
-            const incorrectEscrow = tokens(3)
-
-            expect(result).to.not.equal(incorrectEscrow)       
+            it("Should fail when a non-seller tries to list an NFT", async function () {
+            await expect(escrow.connect(attacker).list(1, seller.address, 1000, 200)).to.be.revertedWith("Escrow: Only seller can call this method");
             })
         })
     })
@@ -131,14 +125,12 @@ describe('Escrow', () => {
     
         describe('Failure', async () => {
 
-            it('Fails to send correct earnest amount', async () => {
-                const cost = ethers.utils.parseEther("0.5")
-                incorrectEthAmount = cost.mul(40).div(100)
-
-                await expect(escrow.connect(buyer).depositEarnest(1, { value: incorrectEthAmount })).to.be.reverted
+            it("Should fail when a non-buyer tries to deposit earnest money", async function () {
+                await expect(escrow.connect(attacker).depositEarnest(1, { value: 200 })).to.be.revertedWith("Escrow: Only buyer can call this method");
             })
         })
     })
+
     describe('Inspection', () => {
         describe('Success', () => {
 
@@ -151,11 +143,6 @@ describe('Escrow', () => {
                 const result = await escrow.inspectionPassed(1)
                 expect(result).to.be.equal(true)
             })
-        })
-         
-
-        describe('Failure', async () => {
-            //fail code
         })
     })
 
@@ -183,7 +170,10 @@ describe('Escrow', () => {
         })
 
         describe('Failure', async () => {
-            //fail code
+           it("Should fail when a non-inspector tries to update inspection status", async function () {
+                
+                await expect(escrow.connect(attacker).updateInspectionStatus(1, true)).to.be.revertedWith("Escrow: Only inspector can call this method");
+            })
         })
     })
 

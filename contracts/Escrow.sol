@@ -16,17 +16,17 @@ contract Escrow {
     address public lender;
 
     modifier onlyBuyer(uint256 _nftID) {
-        require(msg.sender == buyer[_nftID], "Only buyer can call this method");
+        require(msg.sender == buyer[_nftID], "Escrow: Only buyer can call this method");
         _;
     }
 
     modifier onlySeller() {
-        require(msg.sender == seller, "Only seller can call this method");
+        require(msg.sender == seller, "Escrow: Only seller can call this method");
         _;
     }
 
     modifier onlyInspector() {
-        require(msg.sender == inspector, "Only inspector can call this method");
+        require(msg.sender == inspector, "Escrow: Only inspector can call this method");
         _;
     }
 
