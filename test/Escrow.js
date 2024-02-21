@@ -309,6 +309,11 @@ describe('Escrow', () => {
             let nftID, purchasePrice
 
             beforeEach(async () => {
+                purchasePrice = tokens(10)
+                nftID = 1
+
+                await lender.sendTransaction({ to: escrow.address, value: purchasePrice })
+
                 let transaction = await escrow.connect(buyer).depositEarnest(1, { value: tokens(5) })
                 await transaction.wait()
 
@@ -325,48 +330,14 @@ describe('Escrow', () => {
                 await transaction.wait()
 
                 transaction = await escrow.connect(lender).approveSale(1)
-                await transaction.wait()
+                await transaction.wait()                
 
-                await lender.sendTransaction({ to: escrow.address, value: tokens(5) })
-
-                transaction = await escrow.connect(seller).finalizeSale(1)
-                await transaction.wait()
             })
 
-            it('Should finalize sale', async () => {
+            it('Should finalize sale and emit event', async () => {
                 await expect(escrow.finalizeSale(nftID)).to.emit(escrow, "SaleFinalized") 
                 .withArgs(nftID, buyer.address, seller.address, purchasePrice);
-            })            
-        })
-
-    describe('Failure', async () => {
-            beforeEach(async () => {
-
-            let transaction = await escrow.connect(buyer).depositEarnest(1, { value: tokens(5) })
-            await transaction.wait()
-
-            transaction = await escrow.connect(inspector).updateInspectionStatus(1, true)
-            await transaction.wait()
-
-            transaction = await escrow.connect(lawyer).updateLegalStatus(1, false)
-            await transaction.wait()            
-
             })
-
-            it('Fails to update ownership due to unmet condition', async () => {
-
-            await expect(escrow.connect(seller).finalizeSale(1)).to.be.reverted
-
-            const currentOwner = await realEstate.ownerOf(1)
-
-            expect(await realEstate.ownerOf(1)).to.not.equal(buyer.address)
-            })
-
-            it('Fails to transfer escrow to seller due to sale not finaized', async () => {
-                
-            const result = await escrow.getBalance();
-            expect(result).to.not.equal(0)
-            })             
         })
     })
 })

@@ -43,10 +43,9 @@ contract Escrow {
     mapping(uint256 => bool) public inspectionPassed;
     mapping(uint256 => bool) public legalPassed;
     mapping(uint256 => mapping(address => bool)) public approval;
-/*    mapping(uint256 => uint256) public salePrice;
-*/
-/*    event SaleFinalized(uint256 indexed nftID, address indexed buyer, address indexed seller, uint256 salePrice);
-*/
+
+    event SaleFinalized(uint256 indexed nftID, address indexed buyer, address indexed seller, uint256 salePrice);
+
     constructor(
         address _nftAddress,
         address payable _seller,
@@ -66,8 +65,8 @@ contract Escrow {
         address _buyer,
         uint256 _purchasePrice,
         uint256 _escrowAmount
-/*        uint256 _salePrice
-*/    ) public payable onlySeller {
+      
+    ) public payable onlySeller {
         // Transfer NFT from seller to this contract
         IERC721(nftAddress).transferFrom(msg.sender, address(this), _nftID);
 
@@ -75,8 +74,8 @@ contract Escrow {
         purchasePrice[_nftID] = _purchasePrice;
         escrowAmount[_nftID] = _escrowAmount;
         buyer[_nftID] = _buyer;
-/*        salePrice[_nftID] = _salePrice;
-*/    }
+      
+    }
 
     // Put Under Contract (only buyer - payable escrow)
     function depositEarnest(uint256 _nftID) public payable onlyBuyer(_nftID) {
@@ -141,26 +140,8 @@ contract Escrow {
 
         IERC721(nftAddress).transferFrom(address(this), buyer[_nftID], _nftID);
 
-/*        emit SaleFinalized(_nftID, buyer[_nftID], seller, price);
-*/    }
-
-    /*function finalizeSale(uint256 _nftID) public {
-        require(inspectionPassed[_nftID]);
-        require(legalPassed[_nftID]);
-        require(approval[_nftID][buyer[_nftID]]);
-        require(approval[_nftID][seller]);
-        require(approval[_nftID][lender]);
-        require(address(this).balance >= purchasePrice[_nftID]);
-
-        isListed[_nftID] = false;
-
-        (bool success, ) = payable(seller).call{value: address(this).balance}(
-            ""
-        );
-        require(success);
-
-        IERC721(nftAddress).transferFrom(address(this), buyer[_nftID], _nftID);
-    }*/
+        emit SaleFinalized(_nftID, buyer[_nftID], seller, price);
+    }
 
     // Cancel Sale (handle earnest deposit)
     // -> if inspection status is not approved, then refund, otherwise send to seller
