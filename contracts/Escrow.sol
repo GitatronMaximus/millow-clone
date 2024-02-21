@@ -43,7 +43,10 @@ contract Escrow {
     mapping(uint256 => bool) public inspectionPassed;
     mapping(uint256 => bool) public legalPassed;
     mapping(uint256 => mapping(address => bool)) public approval;
-
+/*    mapping(uint256 => uint256) public salePrice;
+*/
+/*    event SaleFinalized(uint256 indexed nftID, address indexed buyer, address indexed seller, uint256 salePrice);
+*/
     constructor(
         address _nftAddress,
         address payable _seller,
@@ -63,7 +66,8 @@ contract Escrow {
         address _buyer,
         uint256 _purchasePrice,
         uint256 _escrowAmount
-    ) public payable onlySeller {
+/*        uint256 _salePrice
+*/    ) public payable onlySeller {
         // Transfer NFT from seller to this contract
         IERC721(nftAddress).transferFrom(msg.sender, address(this), _nftID);
 
@@ -71,7 +75,8 @@ contract Escrow {
         purchasePrice[_nftID] = _purchasePrice;
         escrowAmount[_nftID] = _escrowAmount;
         buyer[_nftID] = _buyer;
-    }
+/*        salePrice[_nftID] = _salePrice;
+*/    }
 
     // Put Under Contract (only buyer - payable escrow)
     function depositEarnest(uint256 _nftID) public payable onlyBuyer(_nftID) {
@@ -104,7 +109,42 @@ contract Escrow {
     // -> Require funds to be correct amount
     // -> Transfer NFT to buyer
     // -> Transfer Funds to Seller
-    function finalizeSale(uint256 _nftID) public {
+
+    bool private locked;
+
+    modifier noReentrant() {
+        require(!locked, "Escrow: Reentrant call detected");
+        locked = true;
+        _;
+        locked = false;
+    }
+    
+    // Finalize Sale
+    function finalizeSale(uint256 _nftID) public noReentrant {
+        // Check
+        require(inspectionPassed[_nftID], "Escrow: Inspection not passed");
+        require(legalPassed[_nftID], "Escrow: Legal check not passed");
+        require(approval[_nftID][buyer[_nftID]], "Escrow: Buyer has not approved the sale");
+        require(approval[_nftID][seller], "Escrow: Seller has not approved the sale");
+        require(approval[_nftID][lender], "Escrow: Lender has not approved the sale");
+        uint256 price = purchasePrice[_nftID];
+        require(address(this).balance >= price, "Escrow: Contract does not have enough balance");
+
+        // Effects
+        isListed[_nftID] = false;
+        purchasePrice[_nftID] = 0; // Resetting the purchase price
+        escrowAmount[_nftID] = 0; // Resetting the escrow amount
+
+        // Interactions
+        (bool success, ) = payable(seller).call{value: price}("");
+        require(success, "Transfer to seller failed");
+
+        IERC721(nftAddress).transferFrom(address(this), buyer[_nftID], _nftID);
+
+/*        emit SaleFinalized(_nftID, buyer[_nftID], seller, price);
+*/    }
+
+    /*function finalizeSale(uint256 _nftID) public {
         require(inspectionPassed[_nftID]);
         require(legalPassed[_nftID]);
         require(approval[_nftID][buyer[_nftID]]);
@@ -120,7 +160,7 @@ contract Escrow {
         require(success);
 
         IERC721(nftAddress).transferFrom(address(this), buyer[_nftID], _nftID);
-    }
+    }*/
 
     // Cancel Sale (handle earnest deposit)
     // -> if inspection status is not approved, then refund, otherwise send to seller
