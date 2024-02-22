@@ -178,8 +178,8 @@ describe('Escrow', () => {
         })
 
         describe('Failure', async () => {
-           it("Should fail when a non-inspector tries to update inspection status", async function () {
-                
+
+           it("Should fail when a non-inspector tries to update inspection status", async function () {               
                 await expect(escrow.connect(attacker).updateInspectionStatus(1, true)).to.be.revertedWith("Escrow: Only inspector can call this method");
             })
         })
@@ -340,4 +340,53 @@ describe('Escrow', () => {
             })
         })
     })
+
+    describe('Cancellation', async () => {
+        describe('Success', () => {
+            let nftID
+
+            beforeEach(async () => {
+                nftID = 1 
+
+                let transaction = await escrow.connect(buyer).depositEarnest(1, { value: tokens(5) })
+                await transaction.wait()
+            })
+
+           it('Returns balance to buyer if inspection not passed', async () => {
+                // Update Inspection Status to fail
+                await escrow.connect(inspector).updateInspectionStatus(nftID, false)
+
+                // Record initial buyer balance
+                const initialBuyerBalance = await ethers.provider.getBalance(buyer.address)
+
+                // Perform Cancellation
+                await escrow.connect(buyer).cancelSale(nftID)
+
+                // Check final buyer balance
+                const finalBuyerBalance = await ethers.provider.getBalance(buyer.address)
+                expect(finalBuyerBalance).to.be.greaterThan(initialBuyerBalance)
+            })
+
+            it('Sends balance to seller if inspection passed', async () => {
+                // Update Inspection Status to pass
+                await escrow.connect(inspector).updateInspectionStatus(nftID, true)
+
+                // Record initial seller balance
+                const initialSellerBalance = await ethers.provider.getBalance(seller.address)
+
+                // Perform Cancellation
+                await escrow.connect(seller).cancelSale(nftID)
+
+                // Check final seller balance
+                const finalSellerBalance = await ethers.provider.getBalance(seller.address);
+                expect(finalSellerBalance).to.be.greaterThan(initialSellerBalance);
+            })
+
+        describe('DOS', () => {
+            
+        })
+
+        })
+    })
 })
+
