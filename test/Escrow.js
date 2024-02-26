@@ -38,8 +38,6 @@ describe('Escrow', () => {
         // List Property
         transaction = await escrow.connect(seller).list(1, buyer.address, tokens(10), tokens(5))
         await transaction.wait()
-
-        const currentOwner = await realEstate.ownerOf(1)
     })        
 
     describe('Deployment', () => {
@@ -352,7 +350,7 @@ describe('Escrow', () => {
                 await transaction.wait()
             })
 
-           it('Returns balance to buyer if inspection not passed', async () => {
+            it('Returns balance to buyer if inspection not passed', async () => {
                 // Update Inspection Status to fail
                 await escrow.connect(inspector).updateInspectionStatus(nftID, false)
 
@@ -381,79 +379,76 @@ describe('Escrow', () => {
                 const finalSellerBalance = await ethers.provider.getBalance(seller.address);
                 expect(finalSellerBalance).to.be.greaterThan(initialSellerBalance);
             })
+        })       
 
-        describe('DoS Attack on cancelSale', () => {
-            let nftID1, nftID2, purchasePrice
+    describe('DoS Attack on cancelSale', () => {
+        let nftID1, nftID2, purchasePrice
 
-                beforeEach(async () => {
-                    nftID1 = 1
-                    nftID2 = 2
-                    purchasePrice = tokens(10)
+            beforeEach(async () => {
+                nftID1 = 1
+                nftID2 = 2
+                purchasePrice = tokens(10)
 
-                    // Ensure the seller owns the NFTs
-                    await realEstate.connect(seller).mint(nftID1)
-                    await realEstate.connect(seller).mint(nftID2)
+                // Ensure the seller owns the NFTs
+                await realEstate.connect(seller).mint(nftID1)
+                await realEstate.connect(seller).mint(nftID2)
 
-                    // Then check ownership
-                    const ownerOfNFT1 = await realEstate.ownerOf(nftID1)
-                    const ownerOfNFT2 = await realEstate.ownerOf(nftID2)
-                    // Ensure that the seller is the owner before approving
-                    if (ownerOfNFT1 === seller.address) {
-                        await realEstate.connect(seller).approve(escrow.address, nftID1)                        
-                    }
+                // Then check ownership
+                const ownerOfNFT1 = await realEstate.ownerOf(nftID1)
+                const ownerOfNFT2 = await realEstate.ownerOf(nftID2)
+                // Ensure that the seller is the owner before approving
+                if (ownerOfNFT1 === seller.address) {
+                    await realEstate.connect(seller).approve(escrow.address, nftID1)                        
+                }
 
-                    if (ownerOfNFT2 === seller.address) {
-                        await realEstate.connect(seller).approve(escrow.address, nftID2)
-                    }
+                if (ownerOfNFT2 === seller.address) {
+                    await realEstate.connect(seller).approve(escrow.address, nftID2)
+                }
+                
+                // Seller lists house 2 for buyer 2
+                await escrow.connect(seller).list(nftID2, attacker.address, purchasePrice, tokens(1))
 
-                   /* // Seller lists house 1 for buyer 1 (double listing)
-                    await escrow.connect(seller).list(nftID1, buyer.address, purchasePrice, tokens(1))*/
-                    
-                    // Seller lists house 2 for buyer 2
-                    await escrow.connect(seller).list(nftID2, attacker.address, purchasePrice, tokens(1))
-
-                     //Buyer 1 sends depositEarnest of 5 ETH to the contract
-                    await escrow.connect(buyer).depositEarnest(nftID1, { value: tokens(5) })
+                 //Buyer 1 sends depositEarnest of 5 ETH to the contract
+                await escrow.connect(buyer).depositEarnest(nftID1, { value: tokens(5) })
+                await escrow.connect(buyer).depositEarnest(nftID2, { value: tokens(5) })
 
 
-                })
+            })
 
-                it('Incorrectly sends 1 ETH to buyer 2 on cancelSale without deposit', async () => {
-                    const initialAttackerBalance = await ethers.provider.getBalance(attacker.address);
+            it('Incorrectly sends 1 ETH to buyer 2 on cancelSale without deposit', async () => {
+                const initialAttackerBalance = await ethers.provider.getBalance(attacker.address)
 
-                    // Buyer 2 decides to cancelSale
-                    await escrow.connect(attacker).cancelSale(nftID2);
+                // Buyer 2 decides to cancelSale
+                await escrow.connect(attacker).cancelSale(nftID2)
 
-                    const finalAttackerBalance = await ethers.provider.getBalance(attacker.address);
+                const finalAttackerBalance = await ethers.provider.getBalance(attacker.address)
 
-                    // Check if attacker (buyer 2) received 1 ETH without depositing
-                    expect(finalAttackerBalance).to.be.greaterThan(initialAttackerBalance);
-                })
+                // Check if attacker (buyer 2) received 1 ETH without depositing
+                expect(finalAttackerBalance).to.be.greaterThan(initialAttackerBalance)
+            })
 
-                it("Seller can't finalizeSale due to insufficient contract balance", async () => {
-                    // Buyer 2 cancels sale, erroneously draining the contract
-                    await escrow.connect(attacker).cancelSale(nftID2);
+            it("Seller can't finalizeSale due to insufficient contract balance", async () => {
+                // Buyer 2 cancels sale, erroneously draining the contract
+                await escrow.connect(attacker).cancelSale(nftID2);
 
-                    transaction = await escrow.connect(inspector).updateInspectionStatus(1, true)
-                    await transaction.wait()
+                transaction = await escrow.connect(inspector).updateInspectionStatus(1, true)
+                await transaction.wait()
 
-                    transaction = await escrow.connect(lawyer).updateLegalStatus(1, true)
-                    await transaction.wait()
+                transaction = await escrow.connect(lawyer).updateLegalStatus(1, true)
+                await transaction.wait()
 
-                    transaction = await escrow.connect(buyer).approveSale(1)
-                    await transaction.wait()
+                transaction = await escrow.connect(buyer).approveSale(1)
+                await transaction.wait()
 
-                    transaction = await escrow.connect(seller).approveSale(1)
-                    await transaction.wait()
+                transaction = await escrow.connect(seller).approveSale(1)
+                await transaction.wait()
 
-                    transaction = await escrow.connect(lender).approveSale(1)
-                    await transaction.wait()
+                transaction = await escrow.connect(lender).approveSale(1)
+                await transaction.wait()
 
-                    // Attempt to finalize sale
-                    await expect(escrow.connect(seller).finalizeSale(nftID1)).to.be.revertedWith("Escrow: Contract does not have enough balance")
-                })
+                // Attempt to finalize sale
+                await expect(escrow.connect(seller).finalizeSale(nftID1)).to.be.revertedWith("Escrow: Contract does not have enough balance")
             })
         })
     })
 })
-

@@ -143,15 +143,50 @@ contract Escrow {
         emit SaleFinalized(_nftID, buyer[_nftID], seller, price);
     }
 
-    // Cancel Sale (handle earnest deposit)
-    // -> if inspection status is not approved, then refund, otherwise send to seller
-    function cancelSale(uint256 _nftID) public {
-        if (inspectionPassed[_nftID] == false) {
-            payable(buyer[_nftID]).transfer(address(this).balance);
+    modifier onlyBuyerOrSeller(uint256 _nftID) {
+        require(
+            msg.sender == buyer[_nftID] || msg.sender == seller,
+            "Escrow: Only buyer or seller can call this method"
+        );
+        _;
+    }
+
+    function cancelSale(uint256 _nftID) public onlyBuyerOrSeller(_nftID) {
+        require(isListed[_nftID], "Escrow: NFT not listed");
+        
+        address buyerAddress = buyer[_nftID];
+        uint256 refundAmount = escrowAmount[_nftID];
+
+        // Reset the listing status and amounts to prevent reentrancy
+        isListed[_nftID] = false;
+        buyer[_nftID] = address(0); // Reset buyer address
+        escrowAmount[_nftID] = 0;
+        purchasePrice[_nftID] = 0;
+
+        if (!inspectionPassed[_nftID]) {
+            require(msg.sender == buyerAddress, "Escrow: Only specific buyer can cancel before inspection");
+            require(address(this).balance >= refundAmount, "Escrow: Insufficient balance for refund");
+
+            // Refund the earnest money to the specific buyer
+            (bool refundSuccess, ) = payable(buyerAddress).call{value: refundAmount}("");
+            require(refundSuccess, "Escrow: Refund to buyer failed");
         } else {
-            payable(seller).transfer(address(this).balance);
+            require(msg.sender == seller, "Escrow: Only seller can cancel after inspection");
+            require(address(this).balance >= refundAmount, "Escrow: Insufficient balance for sale");
+
+            // Transfer the sale amount to the seller
+            (bool saleSuccess, ) = payable(seller).call{value: refundAmount}("");
+            require(saleSuccess, "Escrow: Transfer to seller failed");
         }
     }
+
+    function resetListing(uint256 _nftID) private {
+        isListed[_nftID] = false;
+        buyer[_nftID] = address(0); // Reset buyer address
+        escrowAmount[_nftID] = 0;
+        purchasePrice[_nftID] = 0;
+    }
+
 
     receive() external payable {}
 
